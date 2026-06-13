@@ -509,3 +509,23 @@ $btnCopyLink.addEventListener('click', () => { closeSettings(); navigator.clipbo
 $btnLeave.addEventListener('click', () => { closeSettings(); leaveRoom(); });
 
 (function () { const c = new URLSearchParams(location.search).get('room'); if (c?.length >= 3) attemptJoin(c); })();
+
+// ================================================================
+//  MOBILE KEYBOARD DETECTION
+// ================================================================
+(function () {
+  if (!window.visualViewport || window.innerWidth > 800) return;
+  const fullH = window.innerHeight;
+  function onResize() {
+    const vh = window.visualViewport.height;
+    document.documentElement.style.setProperty('--vh', vh + 'px');
+    // If viewport shrunk by >150px, keyboard is likely open
+    if (fullH - vh > 150) {
+      $room.classList.add('keyboard-open');
+    } else {
+      $room.classList.remove('keyboard-open');
+    }
+  }
+  window.visualViewport.addEventListener('resize', onResize);
+  window.visualViewport.addEventListener('scroll', onResize);
+})();

@@ -236,17 +236,36 @@ body::after{width:400px;height:400px;background:radial-gradient(circle,var(--acc
 ::-webkit-scrollbar-thumb{background:rgba(148,163,184,.08);border-radius:2px}
 
 @media(max-width:800px){
-  .lobby-inner{grid-template-columns:1fr;gap:24px;max-width:400px}
+  /* Lobby: auto-fit to viewport, NO scroll */
+  #lobby{height:100vh;height:100dvh;padding:16px;overflow:hidden}
+  .lobby-inner{grid-template-columns:1fr;gap:16px;max-width:400px}
   .lobby-hero{text-align:center}
-  .lobby-shortcuts{justify-content:center}
+  .lobby-hero h1{font-size:clamp(1.6rem,6vw,2.4rem);margin-bottom:10px}
+  .lobby-hero p{font-size:.85rem;margin-bottom:12px;line-height:1.4}
+  .lobby-shortcuts{display:none}
+  .lobby-forms{padding:20px 18px}
+  .lf-section{gap:8px}
+  .lf-btn{padding:10px 16px;font-size:.84rem}
+  .lf-divider{margin:14px 0}
+  .lf-divider-text{margin:12px 0}
+  .input{padding:9px 12px;font-size:.84rem}
 
-  /* Force vertical stack */
-  #room{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+  /* Hide theater on mobile (it removes chat sidebar) */
+  #btnTheater{display:none!important}
+  .room-body.theater .room-sidebar{display:flex!important}
+
+  /* Force vertical stack — use CSS var set by JS for keyboard */
+  #room{height:100vh;height:100dvh;height:var(--vh,100dvh);overflow:hidden;display:flex;flex-direction:column}
   .room-body{display:flex!important;flex-direction:column!important;flex:1;overflow:hidden!important;min-height:0}
 
   /* Video area: CAPPED so chat has room */
-  .room-main{flex:0 1 auto!important;max-height:40vh!important;min-height:120px;overflow:hidden}
+  .room-main{flex:0 1 auto!important;max-height:40vh!important;min-height:100px;overflow:hidden;transition:max-height .2s}
   .video-wrap{flex:1;min-height:0}
+
+  /* When keyboard opens, shrink video drastically */
+  .keyboard-open .room-main{max-height:0!important;min-height:0!important;padding:0!important;overflow:hidden!important}
+  .keyboard-open .control-bar{display:none!important}
+  .keyboard-open .bottom-bar{display:none!important}
 
   /* Sidebar: FILLS remaining space */
   .room-sidebar{flex:1 1 0!important;min-height:0;border-left:none;border-top:1px solid var(--border-subtle);display:flex!important;flex-direction:column!important;overflow:hidden}
