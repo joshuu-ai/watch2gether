@@ -33,7 +33,6 @@ const ICE_SERVERS = [
   { urls: 'turn:a.relay.metered.ca:443', username: 'e8dd65a92f3c41098ee2b828', credential: '5j1FOFPN0Xb/XOOC' },
   { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65a92f3c41098ee2b828', credential: '5j1FOFPN0Xb/XOOC' }
 ];
-const pendingICE = [];
 
 // ================================================================
 //  DOM
@@ -555,6 +554,8 @@ async function createPC(targetId, role) {
   return pc;
 }
 
+let pendingICE = {}; // Map of peer ID -> Array of candidates
+
 function listenForWebRTCSignals() {
   roomRef.child(`webrtc/signals/${CLIENT_ID}`).on('child_added', async s => {
     const d = s.val();
@@ -564,6 +565,7 @@ function listenForWebRTCSignals() {
       if (d.type === 'offer') {
         const pc = await createPC(d.from, 'answer');
         await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: d.sdp }));
+        await drainICE(d.from, pc);
         const a = await pc.createAnswer();
         await pc.setLocalDescription(a);
         await roomRef.child(`webrtc/signals/${d.from}`).push({ type: 'answer', sdp: a.sdp, from: CLIENT_ID });
@@ -572,11 +574,19 @@ function listenForWebRTCSignals() {
         const pc = peerConnections[d.from];
         if (pc && pc.signalingState !== 'stable') {
           await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: d.sdp }));
+          await drainICE(d.from, pc);
         }
       } 
       else if (d.type === 'ice') {
         const pc = peerConnections[d.from];
-        if (pc) await pc.addIceCandidate(new RTCIceCandidate(d.candidate));
+        if (pc) {
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(d.candidate));
+          } else {
+            pendingICE[d.from] = pendingICE[d.from] || [];
+            pendingICE[d.from].push(d.candidate);
+          }
+        }
       }
     } catch (e) {
       console.error('WebRTC Error:', e);
@@ -584,9 +594,17 @@ function listenForWebRTCSignals() {
   });
 }
 
+async function drainICE(targetId, pc) {
+  const queue = pendingICE[targetId] || [];
+  while (queue.length > 0) {
+    try { await pc.addIceCandidate(new RTCIceCandidate(queue.shift())); } catch (e) {}
+  }
+}
+
 function cleanupWebRTC(keep = false) {
   Object.values(peerConnections).forEach(pc => { pc.ontrack = null; pc.onicecandidate = null; pc.close(); });
   peerConnections = {};
+  pendingICE = {};
   if (!keep && localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   setBadge('peer', 'waiting', 'Disconnected');
 }
