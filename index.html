@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="rose">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Watch Together — sync videos or share your screen with friends in real-time." />
+  <title>Watch Together</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ======================== LOBBY (full viewport) ========================= -->
+<section id="lobby">
+  <div class="lobby-inner">
+    <!-- Left: branding -->
+    <div class="lobby-hero">
+      <h1>✦ Watch<br/>Together</h1>
+      <p>Sync videos &amp; share screens with friends. No sign-up needed.</p>
+      <div class="lobby-shortcuts">
+        <span><b>Space</b> Play/Pause</span>
+        <span><b>F</b> Fullscreen</span>
+        <span><b>M</b> Mute</span>
+        <span><b>←→</b> Seek</span>
+        <span><b>T</b> Theater</span>
+      </div>
+    </div>
+
+    <!-- Right: forms -->
+    <div class="lobby-forms">
+      <div class="lf-section">
+        <label class="lf-label">👤 Display Name</label>
+        <input class="input" type="text" id="usernameInput" placeholder="KRYZ07" maxlength="20" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="lf-divider"></div>
+
+      <div class="lf-section">
+        <label class="lf-label">🎬 Create a Room</label>
+        <input class="input" type="password" id="createPasswordInput" placeholder="Password (optional)" maxlength="30" autocomplete="off" />
+        <button class="btn btn-primary lf-btn" id="btnCreate">Create Room</button>
+      </div>
+
+      <div class="lf-divider-text">or</div>
+
+      <div class="lf-section">
+        <label class="lf-label">🔗 Join a Room</label>
+        <input class="input" type="text" id="joinCodeInput" placeholder="Room code" maxlength="6" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-secondary lf-btn" id="btnJoin">Join Room</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PASSWORD MODAL ========== -->
+<div class="modal-overlay hidden" id="passwordModal">
+  <div class="modal-card">
+    <div class="modal-title">🔒 Room is Locked</div>
+    <p class="modal-desc">Enter the password to join:</p>
+    <input class="input" type="password" id="joinPasswordInput" placeholder="Password" autocomplete="off" style="margin-bottom:14px;" />
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btnCancelPassword">Cancel</button>
+      <button class="btn btn-primary" id="btnSubmitPassword">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== ROOM (full viewport) ========================== -->
+<section id="room" class="hidden">
+
+  <!-- Top bar -->
+  <div class="room-topbar">
+    <div class="room-topbar-left">
+      <span class="room-logo">✦</span>
+      <span class="room-code" id="displayRoomId">------</span>
+      <div class="badge" id="badgeRoom"><span class="dot"></span><span id="badgeRoomText">—</span></div>
+      <div class="badge" id="badgePeer"><span class="dot"></span><span id="badgePeerText">Waiting…</span></div>
+    </div>
+    <div class="room-topbar-right">
+      <button class="btn btn-ghost" id="btnQrCode" title="QR Code">📱</button>
+      <button class="btn btn-ghost" id="btnCopyLink" title="Copy Link">📋</button>
+      <button class="btn btn-ghost" id="btnTheme" title="Theme">🎨</button>
+      <button class="btn btn-ghost" id="btnTheater" title="Theater">🌙</button>
+      <button class="btn btn-ghost btn-ghost-danger" id="btnLeave" title="Leave">🚪</button>
+    </div>
+  </div>
+
+  <!-- URL input bar (always visible, like WatchParty) -->
+  <div class="control-bar">
+    <input class="input control-input" type="url" id="videoUrlInput" placeholder="Paste YouTube link or direct video URL (.mp4)" />
+    <button class="btn btn-accent-load" id="btnLoadVideo" title="Load Video">▶ Load</button>
+    <div class="control-sep"></div>
+    <button class="mode-btn mode-btn-screen" id="btnStartShare">📡 Screenshare</button>
+    <button class="mode-btn mode-btn-stop hidden" id="btnStopShare">⏹ Stop</button>
+    <button class="mode-btn mode-btn-fs hidden" id="btnFullscreenShare" title="Fullscreen">⛶</button>
+  </div>
+
+  <!-- Room body -->
+  <div class="room-body" id="roomBody">
+
+    <!-- LEFT: Video area -->
+    <div class="room-main">
+      <!-- Video player (Mode A — direct files) -->
+      <div class="video-wrap" id="videoWrapA">
+        <video id="playerA" controls playsinline preload="metadata"></video>
+        <div class="video-placeholder" id="phA">
+          <span class="ph-icon">🎥</span>
+          <span>Paste a YouTube link or video URL above</span>
+        </div>
+      </div>
+
+      <!-- YouTube embed player (Mode A — YouTube) -->
+      <div class="video-wrap hidden" id="videoWrapYT">
+        <iframe id="ytFrame" allowfullscreen allow="autoplay; encrypted-media" frameborder="0"></iframe>
+      </div>
+
+      <!-- Screen share player (Mode B, overlays when active) -->
+      <div class="video-wrap hidden" id="videoWrapB">
+        <video id="playerB" autoplay playsinline></video>
+        <div class="video-placeholder" id="phB">
+          <span class="ph-icon">📺</span>
+          <span>Waiting for screen share…</span>
+        </div>
+      </div>
+
+      <!-- Bottom bar: reactions centered -->
+      <div class="bottom-bar">
+        <div class="reactions-bar">
+          <button class="reaction-btn" data-emoji="❤️">❤️</button>
+          <button class="reaction-btn" data-emoji="😂">😂</button>
+          <button class="reaction-btn" data-emoji="🔥">🔥</button>
+          <button class="reaction-btn" data-emoji="👏">👏</button>
+          <button class="reaction-btn" data-emoji="😮">😮</button>
+          <button class="reaction-btn" data-emoji="😢">😢</button>
+          <button class="reaction-btn" data-emoji="🥰">🥰</button>
+          <button class="reaction-btn" data-emoji="💀">💀</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Sidebar -->
+    <aside class="room-sidebar" id="roomSidebar">
+      <!-- Sidebar tabs: People / Chat -->
+      <div class="sb-tabs">
+        <button class="sb-tab active" id="sbTabPeople">👥 People <span class="sb-badge" id="peopleCount">0</span></button>
+        <button class="sb-tab" id="sbTabChat">💬 Chat <span class="sb-badge" id="chatCount">0</span></button>
+      </div>
+
+      <!-- People panel -->
+      <div class="sb-panel active" id="sbPanelPeople">
+        <div class="members-list-full" id="membersList"></div>
+      </div>
+
+      <!-- Chat panel -->
+      <div class="sb-panel" id="sbPanelChat">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-empty" id="chatEmpty">
+            <span>💬</span>
+            <span>No messages yet — say hi!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat input (always visible) -->
+      <div class="chat-input-bar">
+        <input class="input chat-input" type="text" id="chatInput" placeholder="Type a message…" maxlength="500" autocomplete="off" />
+        <button class="btn btn-primary btn-send" id="btnSendChat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </aside>
+
+  </div><!-- /room-body -->
+</section>
+
+<!-- Floating reactions -->
+<div class="reactions-canvas" id="reactionsCanvas"></div>
+
+<!-- Admin Modal -->
+<div class="modal-overlay hidden" id="adminModal">
+  <div class="modal-card">
+    <div class="modal-title">👑 Transfer Admin</div>
+    <div class="modal-member-list" id="adminMemberList"></div>
+    <div class="modal-actions"><button class="btn btn-secondary" id="btnCancelAdmin">Cancel</button></div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-overlay hidden" id="qrModal">
+  <div class="modal-card" style="text-align:center;">
+    <div class="modal-title">📱 Scan to Join</div>
+    <canvas id="qrCanvas" style="margin:10px auto;border-radius:10px;"></canvas>
+    <p class="modal-desc" id="qrLink" style="word-break:break-all;font-size:.72rem;"></p>
+    <div class="modal-actions" style="justify-content:center;margin-top:10px;"><button class="btn btn-secondary" id="btnCloseQr">Close</button></div>
+  </div>
+</div>
+
+<!-- Theme Modal -->
+<div class="modal-overlay hidden" id="themeModal">
+  <div class="modal-card">
+    <div class="modal-title">🎨 Theme</div>
+    <div class="theme-grid">
+      <button class="theme-option" data-theme="rose"><span class="theme-swatch swatch-rose"></span><span>Rose</span></button>
+      <button class="theme-option" data-theme="ocean"><span class="theme-swatch swatch-ocean"></span><span>Ocean</span></button>
+      <button class="theme-option" data-theme="mint"><span class="theme-swatch swatch-mint"></span><span>Mint</span></button>
+      <button class="theme-option" data-theme="sunset"><span class="theme-swatch swatch-sunset"></span><span>Sunset</span></button>
+    </div>
+    <div class="modal-actions" style="margin-top:12px;"><button class="btn btn-secondary" id="btnCloseTheme">Close</button></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+<script src="script.js"></script>
+</body>
+</html>
