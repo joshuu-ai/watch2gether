@@ -314,7 +314,7 @@ function spawnEmoji(e) { const el = document.createElement('div'); el.className 
 //  THEATER / QR / THEME
 // ================================================================
 $btnTheater.addEventListener('click', toggleTheater);
-function toggleTheater() { theaterMode = !theaterMode; $roomBody.classList.toggle('theater', theaterMode); $btnTheater.textContent = theaterMode ? '💡' : '🌙'; toast(theaterMode ? 'Theater mode' : 'Normal mode'); }
+function toggleTheater() { theaterMode = !theaterMode; $roomBody.classList.toggle('theater', theaterMode); $btnTheater.textContent = theaterMode ? 'Normal' : 'Theater'; toast(theaterMode ? 'Theater mode' : 'Normal mode'); }
 
 $btnQrCode.addEventListener('click', () => { const l = `${location.origin}${location.pathname}?room=${roomId}`; $qrLink.textContent = l; if (typeof QRCode !== 'undefined') QRCode.toCanvas($qrCanvas, l, { width: 180, margin: 2, color: { dark: '#f1f5f9', light: '#141f35' } }); $qrModal.classList.remove('hidden'); });
 $btnCloseQr.addEventListener('click', () => $qrModal.classList.add('hidden'));
@@ -333,12 +333,30 @@ document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !roomRef) return;
   const active = screenShareActive ? $playerB : $playerA;
   switch (e.key.toLowerCase()) {
-    case ' ': e.preventDefault(); active.paused ? active.play().catch(() => {}) : active.pause(); break;
-    case 'f': { const wrap = screenShareActive ? $videoWrapB : $videoWrapA; if (wrap.requestFullscreen) wrap.requestFullscreen(); break; }
-    case 'm': active.muted = !active.muted; toast(active.muted ? 'Muted 🔇' : 'Unmuted 🔊'); break;
-    case 'arrowleft': if (!screenShareActive) $playerA.currentTime = Math.max(0, $playerA.currentTime - 10); break;
-    case 'arrowright': if (!screenShareActive) $playerA.currentTime = Math.min($playerA.duration || 0, $playerA.currentTime + 10); break;
+    case ' ': e.preventDefault(); if (!isYouTube) { active.paused ? active.play().catch(() => {}) : active.pause(); } break;
+    case 'f': { const wrap = isYouTube ? $videoWrapYT : (screenShareActive ? $videoWrapB : $videoWrapA); goFullscreen(wrap); break; }
+    case 'm': if (!isYouTube) { active.muted = !active.muted; toast(active.muted ? 'Muted' : 'Unmuted'); } break;
+    case 'arrowleft': if (!screenShareActive && !isYouTube) $playerA.currentTime = Math.max(0, $playerA.currentTime - 10); break;
+    case 'arrowright': if (!screenShareActive && !isYouTube) $playerA.currentTime = Math.min($playerA.duration || 0, $playerA.currentTime + 10); break;
     case 't': toggleTheater(); break;
+  }
+});
+
+// Fullscreen with auto-rotate on mobile
+function goFullscreen(el) {
+  if (!el) return;
+  const p = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : Promise.resolve());
+  Promise.resolve(p).then(() => {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  }).catch(() => {});
+}
+
+// Unlock orientation when exiting fullscreen
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+    screen.orientation.unlock();
   }
 });
 
@@ -389,7 +407,7 @@ function loadVideo(u) {
   if (ytId) {
     isYouTube = true;
     showVideoMode();
-    $ytFrame.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&fs=1`;
+    $ytFrame.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&fs=1`;
     logEvent('YouTube video loaded.');
   } else {
     isYouTube = false;
@@ -425,10 +443,7 @@ function listenForVideoState() {
 // ================================================================
 $btnStartShare.addEventListener('click', startShare);
 $btnStopShare.addEventListener('click', stopShare);
-$btnFullscreenShare.addEventListener('click', () => {
-  if ($videoWrapB.requestFullscreen) $videoWrapB.requestFullscreen();
-  else if ($playerB.requestFullscreen) $playerB.requestFullscreen();
-});
+$btnFullscreenShare.addEventListener('click', () => goFullscreen($videoWrapB));
 
 async function startShare() {
   try { localStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true }); } catch (e) { toast('Screen share cancelled.'); return; }

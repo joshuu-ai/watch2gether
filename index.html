@@ -85,11 +85,11 @@
       <div class="badge" id="badgePeer"><span class="dot"></span><span id="badgePeerText">Waiting…</span></div>
     </div>
     <div class="room-topbar-right">
-      <button class="btn btn-ghost" id="btnQrCode" title="QR Code">📱</button>
-      <button class="btn btn-ghost" id="btnCopyLink" title="Copy Link">📋</button>
-      <button class="btn btn-ghost" id="btnTheme" title="Theme">🎨</button>
-      <button class="btn btn-ghost" id="btnTheater" title="Theater">🌙</button>
-      <button class="btn btn-ghost btn-ghost-danger" id="btnLeave" title="Leave">🚪</button>
+      <button class="btn btn-topbar" id="btnQrCode" title="QR Code">QR</button>
+      <button class="btn btn-topbar" id="btnCopyLink" title="Copy Link">Copy</button>
+      <button class="btn btn-topbar" id="btnTheme" title="Theme">Theme</button>
+      <button class="btn btn-topbar" id="btnTheater" title="Theater">Theater</button>
+      <button class="btn btn-topbar btn-topbar-danger" id="btnLeave" title="Leave">Leave</button>
     </div>
   </div>
 
@@ -149,25 +149,25 @@
 
     <!-- RIGHT: Sidebar -->
     <aside class="room-sidebar" id="roomSidebar">
-      <!-- Sidebar tabs: People / Chat -->
+      <!-- Sidebar tabs: Chat / People -->
       <div class="sb-tabs">
-        <button class="sb-tab active" id="sbTabPeople">👥 People <span class="sb-badge" id="peopleCount">0</span></button>
-        <button class="sb-tab" id="sbTabChat">💬 Chat <span class="sb-badge" id="chatCount">0</span></button>
+        <button class="sb-tab active" id="sbTabChat">Chat <span class="sb-badge" id="chatCount">0</span></button>
+        <button class="sb-tab" id="sbTabPeople">People <span class="sb-badge" id="peopleCount">0</span></button>
       </div>
 
-      <!-- People panel -->
-      <div class="sb-panel active" id="sbPanelPeople">
-        <div class="members-list-full" id="membersList"></div>
-      </div>
-
-      <!-- Chat panel -->
-      <div class="sb-panel" id="sbPanelChat">
+      <!-- Chat panel (default active) -->
+      <div class="sb-panel active" id="sbPanelChat">
         <div class="chat-messages" id="chatMessages">
           <div class="chat-empty" id="chatEmpty">
             <span>💬</span>
             <span>No messages yet — say hi!</span>
           </div>
         </div>
+      </div>
+
+      <!-- People panel -->
+      <div class="sb-panel" id="sbPanelPeople">
+        <div class="members-list-full" id="membersList"></div>
       </div>
 
       <!-- Chat input (always visible) -->
