@@ -492,7 +492,15 @@ $btnStopShare.addEventListener('click', stopShare);
 $btnFullscreenShare.addEventListener('click', () => goFullscreen($videoWrapB));
 
 async function startShare() {
-  try { localStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true }); } catch (e) { toast('Screen share cancelled.'); return; }
+  try {
+    localStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { width: { max: 1280 }, height: { max: 720 }, frameRate: { max: 15 }, cursor: 'always' },
+      audio: true
+    });
+  } catch (e) {
+    toast('Screen share cancelled.');
+    return;
+  }
   screenShareActive = true;
   showScreenMode();
   $playerB.srcObject = localStream; $playerB.muted = true; $phB.classList.add('hidden');
@@ -579,13 +587,12 @@ function listenForWebRTCSignals() {
       } 
       else if (d.type === 'ice') {
         const pc = peerConnections[d.from];
-        if (pc) {
-          if (pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(d.candidate));
-          } else {
-            pendingICE[d.from] = pendingICE[d.from] || [];
-            pendingICE[d.from].push(d.candidate);
-          }
+        if (pc && pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(d.candidate));
+        } else {
+          // Queue ICE candidate even if PC isn't created yet (ICE arrived before Offer)
+          pendingICE[d.from] = pendingICE[d.from] || [];
+          pendingICE[d.from].push(d.candidate);
         }
       }
     } catch (e) {
