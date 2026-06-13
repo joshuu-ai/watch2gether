@@ -29,8 +29,9 @@ let peerConnection = null, localStream = null;
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' }
+  { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65a92f3c41098ee2b828', credential: '5j1FOFPN0Xb/XOOC' },
+  { urls: 'turn:a.relay.metered.ca:443', username: 'e8dd65a92f3c41098ee2b828', credential: '5j1FOFPN0Xb/XOOC' },
+  { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65a92f3c41098ee2b828', credential: '5j1FOFPN0Xb/XOOC' }
 ];
 const pendingICE = [];
 
@@ -213,7 +214,13 @@ function listenForPeers() {
     const d = s.val() || {}; currentPresence = d;
     const keys = Object.keys(d), cur = new Set(keys);
     if (prev.size) {
-      for (const id of keys) if (!prev.has(id) && id !== CLIENT_ID) { logEvent(`${d[id].name || 'Someone'} joined 🎉`); toast(`${d[id].name} joined!`); }
+      for (const id of keys) {
+        if (!prev.has(id) && id !== CLIENT_ID) {
+          logEvent(`${d[id].name || 'Someone'} joined 🎉`); toast(`${d[id].name} joined!`);
+          // If we are currently sharing screen, automatically send them an offer
+          if (screenShareActive && localStream) createPC(id, 'offer');
+        }
+      }
       for (const id of prev) if (!cur.has(id) && id !== CLIENT_ID) logEvent('Someone left.');
     }
     prev = cur;
@@ -339,6 +346,33 @@ $themeModal.addEventListener('click', e => { if (e.target === $themeModal) $them
 document.querySelectorAll('.theme-option').forEach(b => { b.addEventListener('click', () => { document.documentElement.setAttribute('data-theme', b.dataset.theme); localStorage.setItem('w2g_theme', b.dataset.theme); $themeModal.classList.add('hidden'); toast(`Theme: ${b.dataset.theme}`); }); });
 (function () { const t = localStorage.getItem('w2g_theme'); if (t) document.documentElement.setAttribute('data-theme', t); })();
 
+// Rename functionality
+const $renameModal = $('renameModal'), $renameInput = $('renameInput');
+const $btnRename = $('btnRename'), $btnCancelRename = $('btnCancelRename'), $btnSaveRename = $('btnSaveRename');
+
+$btnRename.addEventListener('click', () => { closeSettings(); $renameInput.value = username; $renameModal.classList.remove('hidden'); $renameInput.focus(); });
+$btnCancelRename.addEventListener('click', () => $renameModal.classList.add('hidden'));
+$renameModal.addEventListener('click', e => { if (e.target === $renameModal) $renameModal.classList.add('hidden'); });
+$renameInput.addEventListener('keydown', e => { if (e.key === 'Enter') $btnSaveRename.click(); });
+
+$btnSaveRename.addEventListener('click', () => {
+  const newName = $renameInput.value.trim();
+  if (!newName) { toast('Name cannot be empty.'); return; }
+  if (newName === username) { $renameModal.classList.add('hidden'); return; }
+  
+  const oldName = username;
+  username = newName;
+  localStorage.setItem('w2g_username', username);
+  
+  if (roomRef && currentPresence[CLIENT_ID]) {
+    roomRef.child(`presence/${CLIENT_ID}/name`).set(username);
+    sendSysMsg(`${oldName} changed their name to ${username}`);
+  }
+  $usernameIn.value = username; // Update lobby input just in case
+  $renameModal.classList.add('hidden');
+  toast('Name updated!');
+});
+
 // ================================================================
 //  KEYBOARD SHORTCUTS
 // ================================================================
@@ -460,12 +494,19 @@ $btnFullscreenShare.addEventListener('click', () => goFullscreen($videoWrapB));
 
 async function startShare() {
   try { localStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true }); } catch (e) { toast('Screen share cancelled.'); return; }
+  screenShareActive = true;
   showScreenMode();
   $playerB.srcObject = localStream; $playerB.muted = true; $phB.classList.add('hidden');
   $btnStartShare.classList.add('hidden'); $btnStopShare.classList.remove('hidden'); $btnFullscreenShare.classList.remove('hidden');
   logEvent('Screen sharing started.');
   localStream.getVideoTracks()[0].addEventListener('ended', () => stopShare());
-  await createPC('offer');
+  
+  // Create an offer for EVERY peer currently in the room
+  for (const peerId of Object.keys(currentPresence)) {
+    if (peerId !== CLIENT_ID) {
+      await createPC(peerId, 'offer');
+    }
+  }
 }
 
 function stopShare() {
@@ -477,28 +518,78 @@ function stopShare() {
   logEvent('Screen share stopped.'); if (roomRef) roomRef.child('webrtc').remove();
 }
 
-async function createPC(role) {
-  cleanupWebRTC(true); peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  peerConnection.onicecandidate = ({ candidate }) => { if (candidate && roomRef) roomRef.child(`webrtc/ice_${CLIENT_ID}`).push(candidate.toJSON()); };
-  peerConnection.oniceconnectionstatechange = () => { const s = peerConnection.iceConnectionState; if (s === 'connected' || s === 'completed') setBadge('peer', 'connected', 'WebRTC ✓'); if (s === 'disconnected' || s === 'failed') setBadge('peer', 'waiting', 'Disconnected'); };
-  peerConnection.ontrack = (ev) => {
+let peerConnections = {}; // Map of peer ID -> RTCPeerConnection
+
+async function createPC(targetId, role) {
+  if (peerConnections[targetId]) peerConnections[targetId].close();
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  peerConnections[targetId] = pc;
+  
+  pc.onicecandidate = ({ candidate }) => {
+    if (candidate && roomRef) roomRef.child(`webrtc/signals/${targetId}`).push({ type: 'ice', candidate: candidate.toJSON(), from: CLIENT_ID });
+  };
+  
+  pc.oniceconnectionstatechange = () => {
+    const s = pc.iceConnectionState;
+    if (s === 'connected' || s === 'completed') setBadge('peer', 'connected', 'WebRTC ✓');
+    if (s === 'disconnected' || s === 'failed' || s === 'closed') {
+      delete peerConnections[targetId];
+      if (Object.keys(peerConnections).length === 0) setBadge('peer', 'waiting', 'Disconnected');
+    }
+  };
+  
+  pc.ontrack = (ev) => {
     showScreenMode();
     $playerB.srcObject = ev.streams[0]; $playerB.muted = false; $playerB.play().catch(() => {});
     $phB.classList.add('hidden'); $btnFullscreenShare.classList.remove('hidden');
     toast('Screen share received!');
   };
-  if (localStream) localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-  if (role === 'offer') { const o = await peerConnection.createOffer(); await peerConnection.setLocalDescription(o); await roomRef.child('webrtc/offer').set({ sdp: o.sdp, type: o.type, from: CLIENT_ID }); }
+  
+  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  
+  if (role === 'offer') {
+    const o = await pc.createOffer();
+    await pc.setLocalDescription(o);
+    await roomRef.child(`webrtc/signals/${targetId}`).push({ type: 'offer', sdp: o.sdp, from: CLIENT_ID });
+  }
+  return pc;
 }
 
 function listenForWebRTCSignals() {
-  roomRef.child('webrtc/offer').on('value', async s => { const d = s.val(); if (!d || d.from === CLIENT_ID) return; await createPC('answer'); await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: d.type, sdp: d.sdp })); const a = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(a); await roomRef.child('webrtc/answer').set({ sdp: a.sdp, type: a.type, from: CLIENT_ID }); drainICE(); });
-  roomRef.child('webrtc/answer').on('value', async s => { const d = s.val(); if (!d || d.from === CLIENT_ID || !peerConnection || peerConnection.signalingState === 'stable') return; await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: d.type, sdp: d.sdp })); drainICE(); });
-  roomRef.child('webrtc').on('child_added', s => { const k = s.key; if (!k.startsWith('ice_') || k === `ice_${CLIENT_ID}`) return; roomRef.child(`webrtc/${k}`).on('child_added', async is => { const c = is.val(); if (!c) return; try { if (peerConnection?.remoteDescription) await peerConnection.addIceCandidate(new RTCIceCandidate(c)); else pendingICE.push(c); } catch {} }); });
+  roomRef.child(`webrtc/signals/${CLIENT_ID}`).on('child_added', async s => {
+    const d = s.val();
+    if (!d || d.from === CLIENT_ID) return;
+    
+    try {
+      if (d.type === 'offer') {
+        const pc = await createPC(d.from, 'answer');
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: d.sdp }));
+        const a = await pc.createAnswer();
+        await pc.setLocalDescription(a);
+        await roomRef.child(`webrtc/signals/${d.from}`).push({ type: 'answer', sdp: a.sdp, from: CLIENT_ID });
+      } 
+      else if (d.type === 'answer') {
+        const pc = peerConnections[d.from];
+        if (pc && pc.signalingState !== 'stable') {
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: d.sdp }));
+        }
+      } 
+      else if (d.type === 'ice') {
+        const pc = peerConnections[d.from];
+        if (pc) await pc.addIceCandidate(new RTCIceCandidate(d.candidate));
+      }
+    } catch (e) {
+      console.error('WebRTC Error:', e);
+    }
+  });
 }
 
-async function drainICE() { while (pendingICE.length) { try { await peerConnection.addIceCandidate(new RTCIceCandidate(pendingICE.shift())); } catch {} } }
-function cleanupWebRTC(keep = false) { if (peerConnection) { peerConnection.ontrack = null; peerConnection.onicecandidate = null; peerConnection.oniceconnectionstatechange = null; peerConnection.close(); peerConnection = null; } if (!keep && localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; } pendingICE.length = 0; }
+function cleanupWebRTC(keep = false) {
+  Object.values(peerConnections).forEach(pc => { pc.ontrack = null; pc.onicecandidate = null; pc.close(); });
+  peerConnections = {};
+  if (!keep && localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  setBadge('peer', 'waiting', 'Disconnected');
+}
 
 // ================================================================
 //  LOBBY HANDLERS

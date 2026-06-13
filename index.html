@@ -89,6 +89,7 @@
       <div class="settings-wrap" id="settingsWrap">
         <button class="btn btn-tb btn-tb-gray" id="btnSettings">⚙ Settings</button>
         <div class="settings-dropdown hidden" id="settingsDropdown">
+          <button class="settings-item" id="btnRename">✏️ Change Name</button>
           <button class="settings-item" id="btnQrCode">📱 QR Code</button>
           <button class="settings-item" id="btnCopyLink">📋 Copy Link</button>
           <button class="settings-item" id="btnTheme">🎨 Theme</button>
@@ -221,6 +222,19 @@
       <button class="theme-option" data-theme="sunset"><span class="theme-swatch swatch-sunset"></span><span>Sunset</span></button>
     </div>
     <div class="modal-actions" style="margin-top:12px;"><button class="btn btn-secondary" id="btnCloseTheme">Close</button></div>
+  </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-overlay hidden" id="renameModal">
+  <div class="modal-card">
+    <div class="modal-title">✏️ Change Name</div>
+    <div class="modal-desc">Enter a new display name:</div>
+    <input class="input" type="text" id="renameInput" placeholder="New username" maxlength="20" autocomplete="off" />
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn btn-secondary" id="btnCancelRename">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveRename">Save</button>
+    </div>
   </div>
 </div>
 
