@@ -57,10 +57,13 @@ body::after{width:400px;height:400px;background:radial-gradient(circle,var(--acc
 .btn-primary:hover{transform:translateY(-1px);box-shadow:0 5px 20px rgba(236,72,153,.3)}
 .btn-secondary{background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-subtle)}
 .btn-secondary:hover{border-color:var(--accent-lavender);transform:translateY(-1px)}
-.btn-topbar{background:transparent;color:var(--text-secondary);padding:4px 10px;font-size:.72rem;font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);transition:all .25s}
-.btn-topbar:hover{background:rgba(148,163,184,.08);color:var(--text-primary);border-color:var(--accent-lavender)}
-.btn-topbar-danger{color:var(--text-dim)}
-.btn-topbar-danger:hover{color:#f87171;border-color:#f87171;background:rgba(248,113,113,.06)}
+.btn-tb{padding:4px 12px;font-size:.72rem;font-weight:700;border-radius:var(--radius-sm);border:none;color:#fff;transition:all .2s;letter-spacing:.01em}
+.btn-tb:hover{transform:translateY(-1px);filter:brightness(1.15)}
+.btn-tb-blue{background:#2563eb}
+.btn-tb-gray{background:#475569}
+.btn-tb-purple{background:#7c3aed}
+.btn-tb-amber{background:#d97706}
+.btn-tb-red{background:#dc2626}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* ===================================================
@@ -79,7 +82,7 @@ body::after{width:400px;height:400px;background:radial-gradient(circle,var(--acc
 /* Top bar */
 .room-topbar{display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--bg-card);border-bottom:1px solid var(--border-subtle);height:40px;flex-shrink:0}
 .room-topbar-left{display:flex;align-items:center;gap:10px}
-.room-topbar-right{display:flex;align-items:center;gap:1px}
+.room-topbar-right{display:flex;align-items:center;gap:4px}
 .room-logo{background:linear-gradient(135deg,var(--accent-rose),var(--accent-lavender));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;font-size:1.1rem;font-family:'Outfit',sans-serif}
 .room-code{font-family:'Outfit',sans-serif;font-weight:700;font-size:.88rem;color:var(--accent-lavender);letter-spacing:.05em}
 
@@ -243,7 +246,7 @@ body::after{width:400px;height:400px;background:radial-gradient(circle,var(--acc
   .control-sep{display:none}
   .room-topbar-left .badge{display:none}
   .room-topbar-right{gap:2px}
-  .btn-topbar{padding:3px 6px;font-size:.64rem}
+  .btn-tb{padding:3px 8px;font-size:.62rem}
   .reaction-btn{width:28px;height:28px;font-size:.78rem}
   .reactions-bar{gap:3px}
 }

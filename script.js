@@ -314,7 +314,7 @@ function spawnEmoji(e) { const el = document.createElement('div'); el.className 
 //  THEATER / QR / THEME
 // ================================================================
 $btnTheater.addEventListener('click', toggleTheater);
-function toggleTheater() { theaterMode = !theaterMode; $roomBody.classList.toggle('theater', theaterMode); $btnTheater.textContent = theaterMode ? 'Normal' : 'Theater'; toast(theaterMode ? 'Theater mode' : 'Normal mode'); }
+function toggleTheater() { theaterMode = !theaterMode; $roomBody.classList.toggle('theater', theaterMode); $btnTheater.textContent = theaterMode ? '◧ Normal' : '◧ Theater'; toast(theaterMode ? 'Theater mode' : 'Normal mode'); }
 
 $btnQrCode.addEventListener('click', () => { const l = `${location.origin}${location.pathname}?room=${roomId}`; $qrLink.textContent = l; if (typeof QRCode !== 'undefined') QRCode.toCanvas($qrCanvas, l, { width: 180, margin: 2, color: { dark: '#f1f5f9', light: '#141f35' } }); $qrModal.classList.remove('hidden'); });
 $btnCloseQr.addEventListener('click', () => $qrModal.classList.add('hidden'));
